@@ -2,9 +2,8 @@ package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+import ru.yandex.practicum.filmorate.exceptions.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import java.time.LocalDate;
@@ -36,10 +35,14 @@ public class FilmController {
     @PostMapping
     public Film createFilm(@Valid @RequestBody Film film) {
         validateReleaseDate(film.getReleaseDate());
-
+        if (film.getName().isBlank()) {
+            log.error("Фильм с пустым id не может быть создан");
+            throw new ValidationException("Фильм не создан");
+        }
         film.setId(getNextId());
         filmMap.put(film.getId(), film);
         log.info("Создан фильм с ID: {}", film.getId());
+        log.info("Создан фильм с именем: {}", film.getName());
         return film;
     }
 
@@ -49,7 +52,7 @@ public class FilmController {
 
         if (!filmMap.containsKey(film.getId())) {
             log.error("Фильм с ID {} не найден", film.getId());
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            throw new ValidationException("Фильм с таким id не найден");
         }
 
         filmMap.put(film.getId(), film);
@@ -60,10 +63,9 @@ public class FilmController {
     private void validateReleaseDate(LocalDate releaseDate) {
         if (releaseDate.isBefore(LocalDate.of(1895, 12, 28))) {
             log.error("Дата релиза {} раньше допустимой", releaseDate);
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Дата релиза не может быть раньше 28 декабря 1895 года"
-            );
+            if (releaseDate.isBefore(LocalDate.of(1895, 12, 28))) {
+                throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
+            }
         }
     }
 }
