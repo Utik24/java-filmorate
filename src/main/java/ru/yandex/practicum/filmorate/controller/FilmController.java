@@ -23,15 +23,6 @@ public class FilmController {
         return filmMap.values();
     }
 
-    private long getNextId() {
-        long currentMaxId = filmMap.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
-    }
-
     @PostMapping
     public Film createFilm(@Valid @RequestBody Film film) {
         validateReleaseDate(film.getReleaseDate());
@@ -46,19 +37,54 @@ public class FilmController {
         return film;
     }
 
-    @PutMapping
-    public Film updateFilm(@Valid @RequestBody Film film) {
-        validateReleaseDate(film.getReleaseDate());
+    private long getNextId() {
+        long currentMaxId = filmMap.keySet()
+                .stream()
+                .mapToLong(id -> id)
+                .max()
+                .orElse(0);
+        return ++currentMaxId;
+    }
 
-        if (!filmMap.containsKey(film.getId())) {
+    @PutMapping
+    public Film updateFilm(@RequestBody Film film) {
+        if (film.getId() == null || !filmMap.containsKey(film.getId())) {
             log.error("Фильм с ID {} не найден", film.getId());
             throw new ValidationException("Фильм с таким id не найден");
         }
 
-        filmMap.put(film.getId(), film);
-        log.info("Обновлен фильм с ID: {}", film.getId());
-        return film;
+        Film existing = filmMap.get(film.getId());
+
+        if (film.getName() != null) {
+            if (film.getName().isBlank()) {
+                throw new ValidationException("Название фильма не может быть пустым");
+            }
+            existing.setName(film.getName());
+        }
+
+        if (film.getDescription() != null) {
+            if (film.getDescription().length() > 200) {
+                throw new ValidationException("Описание не должно превышать 200 символов");
+            }
+            existing.setDescription(film.getDescription());
+        }
+
+        if (film.getReleaseDate() != null) {
+            validateReleaseDate(film.getReleaseDate());
+            existing.setReleaseDate(film.getReleaseDate());
+        }
+
+        if (film.getDuration() != null) {
+            if (film.getDuration() <= 0) {
+                throw new ValidationException("Продолжительность должна быть положительным числом");
+            }
+            existing.setDuration(film.getDuration());
+        }
+
+        log.info("Обновлён фильм с ID: {}", film.getId());
+        return existing;
     }
+
 
     private void validateReleaseDate(LocalDate releaseDate) {
         if (releaseDate.isBefore(LocalDate.of(1895, 12, 28))) {
