@@ -1,12 +1,15 @@
 package ru.yandex.practicum.filmorate.storage.film;
 
 import org.springframework.stereotype.Component;
+import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
 import ru.yandex.practicum.filmorate.exceptions.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
 
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Component
 public class InMemoryFilmStorage implements FilmStorage {
@@ -31,7 +34,7 @@ public class InMemoryFilmStorage implements FilmStorage {
         if (film.getReleaseDate().isBefore(LocalDate.of(1895, 12, 28))) {
             throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года.");
         }
-        if(film.getName().isBlank()){
+        if (film.getName().isBlank()) {
             throw new ValidationException("Название фильма не может быть пустым");
         }
         film.setId(getNextId());
@@ -47,6 +50,7 @@ public class InMemoryFilmStorage implements FilmStorage {
                 .orElse(0);
         return ++currentMaxId;
     }
+
     @Override
     public Film update(Film film) {
         if (!films.containsKey(film.getId())) {
