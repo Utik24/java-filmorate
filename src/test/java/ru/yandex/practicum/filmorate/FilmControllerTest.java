@@ -6,8 +6,12 @@ import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
 import ru.yandex.practicum.filmorate.exceptions.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -17,13 +21,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FilmControllerTest {
+
     private FilmController controller;
     private Validator validator;
     private Film.FilmBuilder validFilm;
 
     @BeforeEach
     void setUp() {
-        controller = new FilmController();
+        FilmService filmService = new FilmService(new InMemoryFilmStorage(), new InMemoryUserStorage());
+        controller = new FilmController(filmService);
         validator = Validation.buildDefaultValidatorFactory().getValidator();
         validFilm = Film.builder()
                 .name("Valid Film")
@@ -64,10 +70,8 @@ class FilmControllerTest {
                 .releaseDate(LocalDate.of(1895, 12, 27))
                 .build();
 
-        // Тестируем кастомную валидацию через контроллер
-        FilmController controller = new FilmController();
         Exception exception = assertThrows(RuntimeException.class,
-                () -> controller.createFilm(film));
+                () -> controller.create(film));
 
         assertThat(exception.getMessage())
                 .contains("Дата релиза не может быть раньше 28 декабря 1895 года");
@@ -87,20 +91,19 @@ class FilmControllerTest {
 
     @Test
     void shouldCreateFilmWithValidData() {
-        Film createdFilm = controller.createFilm(validFilm.build());
+        Film createdFilm = controller.create(validFilm.build());
         assertThat(createdFilm.getId()).isNotNull();
         assertThat(controller.findAll()).hasSize(1);
     }
 
-
     @Test
     void shouldUpdateFilmSuccessfully() {
-        Film createdFilm = controller.createFilm(validFilm.build());
+        Film createdFilm = controller.create(validFilm.build());
         Film updatedFilm = createdFilm.toBuilder()
                 .name("Updated Name")
                 .build();
 
-        Film result = controller.updateFilm(updatedFilm);
+        Film result = controller.update(updatedFilm);
         assertThat(result.getName()).isEqualTo("Updated Name");
     }
 
@@ -113,25 +116,25 @@ class FilmControllerTest {
                 .duration(120L)
                 .build();
 
-        assertThatThrownBy(() -> controller.createFilm(invalidFilm))
+        assertThatThrownBy(() -> controller.create(invalidFilm))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Фильм не создан");
+                .hasMessageContaining("Название фильма не может быть пустым");
     }
 
     @Test
     void shouldThrowExceptionWhenUpdatingNonExistentFilm() {
         Film invalidFilm = validFilm.id(999L).build();
 
-        assertThatThrownBy(() -> controller.updateFilm(invalidFilm))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Фильм с таким id не найден");
+        assertThatThrownBy(() -> controller.update(invalidFilm))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("Фильм с ID 999 не найден");
     }
 
     @Test
     void shouldThrowExceptionWhenReleaseDateIsTooEarly() {
         Film invalidFilm = validFilm.releaseDate(LocalDate.of(1895, 12, 27)).build();
 
-        assertThatThrownBy(() -> controller.createFilm(invalidFilm))
+        assertThatThrownBy(() -> controller.create(invalidFilm))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Дата релиза не может быть раньше 28 декабря 1895 года");
     }

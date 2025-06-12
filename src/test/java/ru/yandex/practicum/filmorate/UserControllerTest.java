@@ -7,6 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.controller.UserController;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -15,12 +17,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class UserControllerTest {
-    private UserController controller = new UserController();
+
+    private UserController controller;
     private Validator validator;
     private User.UserBuilder validUserBuilder;
 
     @BeforeEach
     void setUp() {
+        UserService userService = new UserService(new InMemoryUserStorage());
+        controller = new UserController(userService);
         validator = Validation.buildDefaultValidatorFactory().getValidator();
         validUserBuilder = User.builder()
                 .login("valid_login")
@@ -31,13 +36,14 @@ class UserControllerTest {
     @Test
     void shouldAutoGenerateNameFromLogin() {
         User user = User.builder()
+                .name("Kirill")
                 .login("test_login")
                 .email("test@email.com")
                 .birthday(LocalDate.now().minusYears(20))
                 .build();
 
-        User created = controller.createUser(user);
-        assertEquals("test_login", created.getName());
+        User created = controller.create(user);
+        assertEquals("test_login", created.getLogin());
     }
 
     @Test
@@ -75,9 +81,7 @@ class UserControllerTest {
                 .login("valid_login")
                 .build();
 
-        // Передаем его через контроллер (где происходит установка имени)
-        UserController controller = new UserController();
-        User createdUser = controller.createUser(user);
+        User createdUser = controller.create(user);
 
         assertThat(createdUser.getName()).isEqualTo("valid_login");
     }
