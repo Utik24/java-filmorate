@@ -14,7 +14,7 @@ import java.util.Set;
 public class Film {
     // Всегда инициализируем поле пустым HashSet
     @JsonIgnore
-    final private Set<Long> likes = new HashSet<>();
+    private final Set<Long> likes = new HashSet<>();
     private Long id;
     @NotBlank(message = "Название фильма не может быть пустым")
     private String name;

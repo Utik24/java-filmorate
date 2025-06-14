@@ -19,7 +19,7 @@ import java.util.Set;
 @EqualsAndHashCode
 public class User {
     @JsonIgnore
-    final private Set<Long> friends = new HashSet<>();
+    private final Set<Long> friends = new HashSet<>();
     private Long id;
     @NotBlank(message = "Логин не может быть пустым")
     @Pattern(regexp = "\\S+", message = "Логин не может содержать пробелы")
