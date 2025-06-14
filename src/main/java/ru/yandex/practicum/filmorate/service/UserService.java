@@ -19,7 +19,7 @@ public class UserService {
 
     public List<User> findAll() {
         log.debug("Запрос на получение всех пользователей");
-        return (List<User>) userStorage.findAll();
+        return userStorage.findAll();
     }
 
     public User findById(Long id) {

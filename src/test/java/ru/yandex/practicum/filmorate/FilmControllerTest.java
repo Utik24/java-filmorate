@@ -31,11 +31,7 @@ class FilmControllerTest {
         FilmService filmService = new FilmService(new InMemoryFilmStorage(), new InMemoryUserStorage());
         controller = new FilmController(filmService);
         validator = Validation.buildDefaultValidatorFactory().getValidator();
-        validFilm = Film.builder()
-                .name("Valid Film")
-                .description("A valid film description")
-                .releaseDate(LocalDate.of(2000, 1, 1))
-                .duration(120L);
+        validFilm = Film.builder().name("Valid Film").description("A valid film description").releaseDate(LocalDate.of(2000, 1, 1)).duration(120L);
     }
 
     @Test
@@ -51,8 +47,7 @@ class FilmControllerTest {
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
         assertThat(violations).hasSize(1);
-        assertThat(violations.iterator().next().getMessage())
-                .isEqualTo("Название фильма не может быть пустым");
+        assertThat(violations.iterator().next().getMessage()).isEqualTo("Название фильма не может быть пустым");
     }
 
     @Test
@@ -66,24 +61,16 @@ class FilmControllerTest {
 
     @Test
     void shouldFailWhenReleaseDateTooEarly() {
-        Film film = validFilm
-                .releaseDate(LocalDate.of(1895, 12, 27))
-                .build();
+        Film film = validFilm.releaseDate(LocalDate.of(1895, 12, 27)).build();
 
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> controller.create(film));
+        Exception exception = assertThrows(RuntimeException.class, () -> controller.create(film));
 
-        assertThat(exception.getMessage())
-                .contains("Дата релиза не может быть раньше 28 декабря 1895 года");
+        assertThat(exception.getMessage()).contains("Дата релиза не может быть раньше 28 декабря 1895 года");
     }
 
     @Test
     void shouldAcceptBoundaryValues() {
-        Film film = validFilm
-                .description("a".repeat(200))
-                .releaseDate(LocalDate.of(1895, 12, 28))
-                .duration(1L)
-                .build();
+        Film film = validFilm.description("a".repeat(200)).releaseDate(LocalDate.of(1895, 12, 28)).duration(1L).build();
 
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
         assertThat(violations).isEmpty();
@@ -99,9 +86,7 @@ class FilmControllerTest {
     @Test
     void shouldUpdateFilmSuccessfully() {
         Film createdFilm = controller.create(validFilm.build());
-        Film updatedFilm = createdFilm.toBuilder()
-                .name("Updated Name")
-                .build();
+        Film updatedFilm = createdFilm.toBuilder().name("Updated Name").build();
 
         Film result = controller.update(updatedFilm);
         assertThat(result.getName()).isEqualTo("Updated Name");
@@ -109,33 +94,22 @@ class FilmControllerTest {
 
     @Test
     void shouldRejectEmptyName() {
-        Film invalidFilm = Film.builder()
-                .name(" ")
-                .description("A valid film description")
-                .releaseDate(LocalDate.of(2000, 1, 1))
-                .duration(120L)
-                .build();
+        Film invalidFilm = Film.builder().name(" ").description("A valid film description").releaseDate(LocalDate.of(2000, 1, 1)).duration(120L).build();
 
-        assertThatThrownBy(() -> controller.create(invalidFilm))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Название фильма не может быть пустым");
+        assertThatThrownBy(() -> controller.create(invalidFilm)).isInstanceOf(ValidationException.class).hasMessageContaining("Название фильма не может быть пустым");
     }
 
     @Test
     void shouldThrowExceptionWhenUpdatingNonExistentFilm() {
         Film invalidFilm = validFilm.id(999L).build();
 
-        assertThatThrownBy(() -> controller.update(invalidFilm))
-                .isInstanceOf(NotFoundException.class)
-                .hasMessageContaining("Фильм с ID 999 не найден");
+        assertThatThrownBy(() -> controller.update(invalidFilm)).isInstanceOf(NotFoundException.class).hasMessageContaining("Фильм с ID 999 не найден");
     }
 
     @Test
     void shouldThrowExceptionWhenReleaseDateIsTooEarly() {
         Film invalidFilm = validFilm.releaseDate(LocalDate.of(1895, 12, 27)).build();
 
-        assertThatThrownBy(() -> controller.create(invalidFilm))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Дата релиза не может быть раньше 28 декабря 1895 года");
+        assertThatThrownBy(() -> controller.create(invalidFilm)).isInstanceOf(ValidationException.class).hasMessageContaining("Дата релиза не может быть раньше 28 декабря 1895 года");
     }
 }
