@@ -4,14 +4,12 @@ import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class InMemoryUserStorage implements UserStorage {
     private final Map<Long, User> users = new HashMap<>();
+    private long idCounter = 1;
 
     @Override
     public List<User> findAll() {
@@ -19,28 +17,60 @@ public class InMemoryUserStorage implements UserStorage {
     }
 
     @Override
-    public User findById(Long id) {
+    public Optional<User> findById(Long id) {
         User user = users.get(id);
         if (user == null) {
-            throw new NotFoundException("Пользователь с ID " + id + " не найден");
+            return Optional.empty();
         }
-        return user;
+        return Optional.of(user);
+    }
+
+    @Override
+    public void addFriendRequest(Long requesterId, Long targetId) {
+        User requester = getUserOrThrow(requesterId);
+        User target = getUserOrThrow(targetId);
+
+        if (requester.getFriends().contains(targetId) ||
+                target.getRequestedFriends().contains(requesterId) ||
+                requester.getRequestedFriends().contains(targetId)) {
+            throw new IllegalStateException("Запрос на дружбу уже существует");
+        }
+
+        target.getRequestedFriends().add(requesterId);
+    }
+
+    @Override
+    public void confirmFriendship(Long userId, Long friendId) {
+        User user = getUserOrThrow(userId);
+        User friend = getUserOrThrow(friendId);
+
+        if (!user.getRequestedFriends().contains(friendId)) {
+            throw new NotFoundException("Запрос на дружбу от пользователя " + friendId + " не найден");
+        }
+
+        user.getRequestedFriends().remove(friendId);
+        user.getFriends().add(friendId);
+        friend.getFriends().add(userId);
+    }
+
+    @Override
+    public void removeFriendship(Long userId, Long friendId) {
+        User user = getUserOrThrow(userId);
+        User friend = getUserOrThrow(friendId);
+
+        if (!user.getFriends().contains(friendId) || !friend.getFriends().contains(userId)) {
+            throw new NotFoundException("Дружба между пользователями не найдена");
+        }
+
+        user.getFriends().remove(friendId);
+        friend.getFriends().remove(userId);
     }
 
     @Override
     public User create(User user) {
-        user.setId(getNextId());
+        user.setId(idCounter++);
         users.put(user.getId(), user);
         return user;
-    }
-
-    private long getNextId() {
-        long currentMaxId = users.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
     }
 
     @Override
@@ -50,5 +80,10 @@ public class InMemoryUserStorage implements UserStorage {
         }
         users.put(user.getId(), user);
         return user;
+    }
+
+    private User getUserOrThrow(Long id) {
+        return findById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь с ID " + id + " не найден"));
     }
 }
