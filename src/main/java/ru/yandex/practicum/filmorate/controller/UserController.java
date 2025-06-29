@@ -1,85 +1,84 @@
 package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.UserService;
 
-import java.time.LocalDate;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
-@Slf4j
 @RestController
 @RequestMapping("/users")
+@RequiredArgsConstructor
+@Slf4j
 public class UserController {
-    private final Map<Long, User> users = new HashMap<>();
+    private final UserService userService;
 
     @GetMapping
     public Collection<User> findAll() {
-        log.info("Получен запрос на получение всех пользователей. Текущее количество: {}", users.size());
-        return users.values();
+        log.debug("Получен запрос на получение всех пользователей");
+        Collection<User> users = userService.findAll();
+        log.debug("Количество пользователей: {}", users.size());
+        return users;
     }
 
-    @PostMapping
-    public User createUser(@Valid @RequestBody User user) {
-        if (user.getName() == null || user.getName().isBlank()) {
-            user.setName(user.getLogin());
-            log.debug("Установлено имя из логина: {}", user.getLogin());
-        }
-
-        user.setId(getNextId());
-        users.put(user.getId(), user);
-        log.info("Создан пользователь с ID: {}", user.getId());
+    @GetMapping("/{id}")
+    public User findById(@PathVariable Long id) {
+        log.debug("Получен запрос на пользователя с id: {}", id);
+        User user = userService.findById(id);
+        log.debug("Найден пользователь: {}", user);
         return user;
     }
 
-    // вспомогательный метод для генерации идентификатора нового юзера
-    private long getNextId() {
-        long currentMaxId = users.keySet().stream().mapToLong(id -> id).max().orElse(0);
-        return ++currentMaxId;
+    @PostMapping
+    public User create(@Valid @RequestBody User user) {
+        log.debug("Получен запрос на создание пользователя: {}", user);
+        User createdUser = userService.create(user);
+        log.debug("Создан пользователь: {}", createdUser);
+        return createdUser;
     }
 
     @PutMapping
-    public User updateUser(@RequestBody User user) {
-        if (user.getId() == null || !users.containsKey(user.getId())) {
-            log.error("Пользователь с ID {} не найден", user.getId());
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        }
-
-        User existing = users.get(user.getId());
-
-        if (user.getLogin() != null) {
-            if (user.getLogin().isBlank() || user.getLogin().contains(" ")) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Логин не может быть пустым или содержать пробелы");
-            }
-            existing.setLogin(user.getLogin());
-        }
-
-        if (user.getName() != null) {
-            existing.setName(user.getName());
-        }
-
-        if (user.getEmail() != null) {
-            if (user.getEmail().isBlank() || !user.getEmail().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Некорректный формат email");
-            }
-            existing.setEmail(user.getEmail());
-        }
-
-        if (user.getBirthday() != null) {
-            if (user.getBirthday().isAfter(LocalDate.now())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Дата рождения не может быть в будущем");
-            }
-            existing.setBirthday(user.getBirthday());
-        }
-
-        log.info("Обновлен пользователь с ID: {}", user.getId());
-        return existing;
+    public User update(@RequestBody User user) {
+        log.debug("Получен запрос на обновление пользователя: {}", user);
+        User updatedUser = userService.update(user);
+        log.debug("Обновлен пользователь: {}", updatedUser);
+        return updatedUser;
     }
 
+    @PutMapping("/{id}/friends/{friendId}")
+    public User addFriend(@PathVariable Long id, @PathVariable Long friendId) {
+        log.debug("Запрос на добавление в друзья: пользователь {} - друг {}", id, friendId);
+        userService.addFriend(id, friendId);
+        log.debug("Пользователь {} теперь друг с {}", id, friendId);
+        return userService.findById(friendId);
+    }
 
+    @DeleteMapping("/{id}/friends/{friendId}")
+    public User removeFriend(@PathVariable Long id, @PathVariable Long friendId) {
+        log.debug("Запрос на удаление друга: пользователь {} - друг {}", id, friendId);
+        User friend = userService.findById(friendId);
+        userService.removeFriend(id, friendId);
+        log.debug("Пользователь {} больше не друг с {}", id, friendId);
+        return friend;
+    }
+
+    @GetMapping("/{id}/friends")
+    public List<User> getFriends(@PathVariable Long id) {
+        log.debug("Запрос на получение списка друзей пользователя с id: {}", id);
+        List<User> friends = userService.getFriends(id);
+        log.debug("Количество друзей: {}", friends.size());
+        return friends;
+    }
+
+    @GetMapping("/{id}/friends/common/{otherId}")
+    public List<User> getCommonFriends(@PathVariable Long id, @PathVariable Long otherId) {
+        log.debug("Запрос на получение общих друзей между пользователями {} и {}", id, otherId);
+        List<User> commonFriends = userService.getCommonFriends(id, otherId);
+        log.debug("Количество общих друзей: {}", commonFriends.size());
+        return commonFriends;
+    }
 }
