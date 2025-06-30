@@ -18,10 +18,7 @@ import java.util.Set;
 @ToString
 @EqualsAndHashCode
 public class User {
-    @JsonIgnore
-    private final Set<Long> friends = new HashSet<>();
-    @JsonIgnore
-    private final Set<Long> requestedFriends = new HashSet<>();
+
     private Long id;
     @NotBlank(message = "Логин не может быть пустым")
     @Pattern(regexp = "\\S+", message = "Логин не может содержать пробелы")
@@ -32,6 +29,9 @@ public class User {
     private String email;
     @PastOrPresent(message = "Дата рождения не может быть в будущем")
     private LocalDate birthday;
-
+    @JsonIgnore
+    private final Set<Long> friends = new HashSet<>();
+    @JsonIgnore
+    private final Set<Long> requestedFriends = new HashSet<>();
 
 }

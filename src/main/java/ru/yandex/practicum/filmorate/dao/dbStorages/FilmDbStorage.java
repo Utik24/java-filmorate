@@ -9,7 +9,6 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.dao.dto.GenreDto;
-import ru.yandex.practicum.filmorate.dao.dto.MpaDto;
 import ru.yandex.practicum.filmorate.dao.mapper.FilmMapper;
 import ru.yandex.practicum.filmorate.exceptions.NotFoundException;
 import ru.yandex.practicum.filmorate.exceptions.ValidationException;
@@ -31,9 +30,6 @@ public class FilmDbStorage implements FilmStorage {
     private final FilmMapper filmMapper;
 
     public Film create(Film film) {
-        if (film.getMpa() == null) {
-            throw new ValidationException("MPA rating is required");
-        }
         checkMpaExists(film.getMpa().getId());
 
         String sql = "INSERT INTO films (name, description, release_date, duration, rating_id) " +
@@ -140,7 +136,14 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public List<Film> findAll() {
-        String sql = "SELECT * FROM films";
+        String sql = """
+                SELECT 
+                  f.id, f.name, f.description, f.release_date, f.duration,
+                  r.id   AS mpa_id,
+                  r.name AS mpa_name
+                FROM films AS f
+                JOIN ratings AS r ON f.rating_id = r.id
+                """;
         List<Film> films = jdbcTemplate.query(sql, filmMapper);
         loadAdditionalData(films);
         return films;
@@ -148,12 +151,20 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Optional<Film> findById(Long id) {
-        String sql = "SELECT * FROM films WHERE id = ?";
-        List<Film> films = jdbcTemplate.query(sql, filmMapper, id);
-        if (films.isEmpty()) {
+        String sql = """
+                SELECT 
+                  f.id, f.name, f.description, f.release_date, f.duration,
+                  r.id   AS mpa_id,
+                  r.name AS mpa_name
+                FROM films AS f
+                JOIN ratings AS r ON f.rating_id = r.id
+                WHERE f.id = ?
+                """;
+        List<Film> list = jdbcTemplate.query(sql, filmMapper, id);
+        if (list.isEmpty()) {
             return Optional.empty();
         }
-        Film film = films.get(0);
+        Film film = list.get(0);
         loadAdditionalData(Collections.singletonList(film));
         return Optional.of(film);
     }
@@ -163,51 +174,53 @@ public class FilmDbStorage implements FilmStorage {
 
         // Очистка существующих данных перед загрузкой
         for (Film film : films) {
-            film.getLikes().clear();
             if (film.getGenres() != null) {
                 film.getGenres().clear();
             }
         }
 
-        loadMpa(films);
         loadLikes(films);
         loadGenres(films);
     }
 
-    private void loadMpa(List<Film> films) {
-        Map<Long, Film> filmMap = films.stream()
-                .collect(Collectors.toMap(Film::getId, Function.identity()));
-
-        String sql = "SELECT f.id, r.id AS mpa_id, r.name AS mpa_name " +
-                "FROM films f JOIN ratings r ON f.rating_id = r.id " +
-                "WHERE f.id IN (" + getPlaceholders(filmMap.size()) + ")";
-
-        jdbcTemplate.query(sql, rs -> {
-            Long filmId = rs.getLong("id");
-            Film film = filmMap.get(filmId);
-            if (film != null) {
-                film.setMpa(new MpaDto(
-                        rs.getInt("mpa_id"),
-                        rs.getString("mpa_name")
-                ));
-            }
-        }, filmMap.keySet().toArray());
-    }
 
     private void loadLikes(List<Film> films) {
+        if (films.isEmpty()) {
+            return;
+        }
+
+        // Собираем map для быстрого поиска по ид
         Map<Long, Film> filmMap = films.stream()
                 .collect(Collectors.toMap(Film::getId, Function.identity()));
 
-        String sql = "SELECT film_id, user_id FROM likes " +
-                "WHERE film_id IN (" + getPlaceholders(filmMap.size()) + ")";
+        // Формируем SQL с группировкой и подсчётом лайков
+        String sql = "SELECT film_id, COUNT(user_id) AS like_count " +
+                "FROM likes " +
+                "WHERE film_id IN (" + getPlaceholders(filmMap.size()) + ") " +
+                "GROUP BY film_id";
 
+        // Параметры для IN‑списка
+        Object[] params = filmMap.keySet().toArray();
+
+        // Выполняем запрос и проставляем countLikes
         jdbcTemplate.query(sql, rs -> {
-            Film film = filmMap.get(rs.getLong("film_id"));
+            long filmId = rs.getLong("film_id");
+            long likeCount = rs.getLong("like_count");
+
+            Film film = filmMap.get(filmId);
             if (film != null) {
-                film.getLikes().add(rs.getLong("user_id"));
+                film.setCountLikes(likeCount);
             }
-        }, filmMap.keySet().toArray());
+        }, params);
+
+        // Для фильмов без записей в likes установим 0
+        filmMap.values().forEach(f -> {
+            if (f.getCountLikes() == null) {
+                f.setCountLikes(0L);
+            }
+        });
     }
+
 
     private void loadGenres(List<Film> films) {
         Map<Long, Film> filmMap = films.stream()
@@ -253,14 +266,36 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public List<Film> getTopFilms(int count) {
-        String sql = "SELECT f.* FROM films f " +
-                "LEFT JOIN likes l ON f.id = l.film_id " +
-                "GROUP BY f.id " +
-                "ORDER BY COUNT(l.user_id) DESC " +
-                "LIMIT ?";
+        String sql = """
+                SELECT
+                  f.id,
+                  f.name,
+                  f.description,
+                  f.release_date,
+                  f.duration,
+                  r.id   AS mpa_id,
+                  r.name AS mpa_name
+                FROM films AS f
+                JOIN ratings AS r
+                  ON f.rating_id = r.id
+                LEFT JOIN likes AS l
+                  ON f.id = l.film_id
+                GROUP BY
+                  f.id,
+                  f.name,
+                  f.description,
+                  f.release_date,
+                  f.duration,
+                  r.id,
+                  r.name
+                ORDER BY COUNT(l.user_id) DESC
+                LIMIT ?
+                """;
+
         List<Film> films = jdbcTemplate.query(sql, filmMapper, count);
         loadAdditionalData(films);
         return films;
     }
+
 
 }

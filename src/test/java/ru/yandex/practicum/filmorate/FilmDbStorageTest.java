@@ -22,7 +22,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
@@ -38,17 +39,17 @@ class FilmDbStorageTest {
         // Вставляем пользователей для лайков
         jdbcTemplate.update(
                 "INSERT INTO users(id, login, name, email, birthday) VALUES (?,?,?,?,?)",
-                1L, "user1", "User One", "u1@example.com", Date.valueOf(LocalDate.of(1990,1,1))
+                1L, "user1", "User One", "u1@example.com", Date.valueOf(LocalDate.of(1990, 1, 1))
         );
         jdbcTemplate.update(
                 "INSERT INTO users(id, login, name, email, birthday) VALUES (?,?,?,?,?)",
-                2L, "user2", "User Two", "u2@example.com", Date.valueOf(LocalDate.of(1991,2,2))
+                2L, "user2", "User Two", "u2@example.com", Date.valueOf(LocalDate.of(1991, 2, 2))
         );
 
         film = Film.builder()
                 .name("Test Film")
                 .description("Desc")
-                .releaseDate(LocalDate.of(2000,1,1))
+                .releaseDate(LocalDate.of(2000, 1, 1))
                 .duration(100L)
                 .mpa(new MpaDto(1, ""))
                 .build();
@@ -83,21 +84,30 @@ class FilmDbStorageTest {
     void testAddAndRemoveLike() {
         Film created = filmStorage.create(film);
         long fid = created.getId();
+
+        // добавляем лайк — ожидаем countLikes == 1
         filmStorage.addLike(fid, 1L);
         Film withLike = filmStorage.findById(fid).get();
-        assertThat(withLike.getLikes()).contains(1L);
+        assertThat(withLike.getCountLikes())
+                .as("После добавления одного лайка countLikes должен стать 1")
+                .isEqualTo(1L);
+
+        // удаляем лайк — ожидаем countLikes == 0
         filmStorage.removeLike(fid, 1L);
         Film noLike = filmStorage.findById(fid).get();
-        assertThat(noLike.getLikes()).doesNotContain(1L);
+        assertThat(noLike.getCountLikes())
+                .as("После удаления лайка countLikes должен стать 0")
+                .isEqualTo(0L);
     }
+
 
     @Test
     void testGetTopFilms() {
         Film a = filmStorage.create(Film.builder()
-                .name("A").description("Desc").releaseDate(LocalDate.of(2000,1,1))
+                .name("A").description("Desc").releaseDate(LocalDate.of(2000, 1, 1))
                 .duration(100L).mpa(new MpaDto(1, "")).build());
         Film b = filmStorage.create(Film.builder()
-                .name("B").description("Desc").releaseDate(LocalDate.of(2000,1,1))
+                .name("B").description("Desc").releaseDate(LocalDate.of(2000, 1, 1))
                 .duration(100L).mpa(new MpaDto(1, "")).build());
         filmStorage.addLike(a.getId(), 1L);
         filmStorage.addLike(a.getId(), 2L);

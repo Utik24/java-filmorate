@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -11,15 +10,12 @@ import ru.yandex.practicum.filmorate.dao.dto.GenreDto;
 import ru.yandex.practicum.filmorate.dao.dto.MpaDto;
 
 import java.time.LocalDate;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+
 
 @Data
 @Builder(toBuilder = true)
 public class Film {
-    @JsonIgnore
-    private final Set<Long> likes = new HashSet<>();
 
     private Long id;
 
@@ -39,4 +35,6 @@ public class Film {
     private MpaDto mpa;
 
     private List<GenreDto> genres;
+
+    private Long countLikes;
 }

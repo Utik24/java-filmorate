@@ -97,7 +97,7 @@ public class FilmService {
             throw new ValidationException("Название фильма не может быть пустым");
         }
         // Добавляем проверку MPA
-        if (film.getMpa() == null || film.getMpa().getId() <= 0) {
+        if (film.getMpa().getId() <= 0) {
             throw new ValidationException("Некорректный рейтинг MPA");
         }
     }

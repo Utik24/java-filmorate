@@ -164,4 +164,23 @@ public class UserDbStorage implements UserStorage {
             userMap.get(targetId).getRequestedFriends().add(requesterId);
         }, userMap.keySet().toArray());
     }
+
+    public List<User> findAllByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String sql = "SELECT id, email, login, name, birthday " +
+                "FROM users " +
+                "WHERE id IN (" + getPlaceholders(ids.size()) + ")";
+        return jdbcTemplate.query(
+                sql,
+                userMapper,
+                ids.toArray()
+        );
+    }
+
+    private String getPlaceholders(int count) {
+        return String.join(",", Collections.nCopies(count, "?"));
+    }
+
 }

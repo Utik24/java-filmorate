@@ -86,9 +86,9 @@ public class UserService {
     public List<User> getFriends(Long userId) {
         log.debug("Запрос на получение друзей пользователя с id: {}", userId);
         User user = findById(userId);
-        return user.getFriends().stream()
-                .map(this::findById)
-                .collect(Collectors.toList());
+        Set<Long> friendIds = user.getFriends();
+        // единый пакетный запрос вместо цикла
+        return userStorage.findAllByIds(friendIds);
     }
 
     public List<User> getCommonFriends(Long userId, Long otherId) {
@@ -96,12 +96,13 @@ public class UserService {
         User user = findById(userId);
         User otherUser = findById(otherId);
 
-        Set<Long> userFriends = user.getFriends();
-        Set<Long> otherFriends = otherUser.getFriends();
+        // пересечение множеств id-друзей
+        Set<Long> common = user.getFriends().stream()
+                .filter(otherUser.getFriends()::contains)
+                .collect(Collectors.toSet());
 
-        return userFriends.stream()
-                .filter(otherFriends::contains)
-                .map(this::findById)
-                .collect(Collectors.toList());
+        // и снова единый запрос за всеми общими друзьями
+        return userStorage.findAllByIds(common);
     }
+
 }
