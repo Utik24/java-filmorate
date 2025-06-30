@@ -137,7 +137,7 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public List<Film> findAll() {
         String sql = """
-                SELECT 
+                SELECT
                   f.id, f.name, f.description, f.release_date, f.duration,
                   r.id   AS mpa_id,
                   r.name AS mpa_name
@@ -152,7 +152,7 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Optional<Film> findById(Long id) {
         String sql = """
-                SELECT 
+                SELECT
                   f.id, f.name, f.description, f.release_date, f.duration,
                   r.id   AS mpa_id,
                   r.name AS mpa_name
